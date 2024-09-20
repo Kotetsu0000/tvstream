@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>TVStream</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 追加のスタイル */
+    #sidebar {
+      height: 100vh; /* サイドバーの高さを画面全体に */
+    }
+  </style>
+</head>
+
+<body class="bg-gray-900 text-white flex">
+
+  <div id="sidebar" class="w-64 bg-gray-800 p-4 shadow-md">
+    <button id="addScreen" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4">
+      画面を追加
+    </button>
+    <div id="screenControls" class="space-y-2">
+      <!-- 下側の余白を追加 -->
+    </div>
+  </div>
+
+  <div id="main" class="flex-1 p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+    <!-- grid-cols-* で列数を指定 -->
+  </div>
+
+  <script>
+    const main = document.getElementById('main');
+    const screenControls = document.getElementById('screenControls');
+    const addScreenButton = document.getElementById('addScreen');
+    const m3u8Url = 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_japan.m3u8';
+
+    let screenCount = 0;
+    let channelOptions = []; // チャンネルリストの選択肢を格納
+
+    function addScreen() {
+      screenCount++;
+      const videoContainer = document.createElement('div');
+      // Tailwind CSSのユーティリティクラスを直接指定
+      videoContainer.classList.add(
+        'bg-gray-700', 
+        'rounded-lg', 
+        'shadow-md', 
+        'p-2', 
+        'flex', 
+        'flex-col' // 縦方向に配置
+      ); 
+
+      const screenTitle = document.createElement('h2');
+      screenTitle.textContent = `画面 ${screenCount}`;
+      screenTitle.classList.add('text-xs', 'font-bold', 'mb-2'); // 文字サイズを小さく
+      videoContainer.appendChild(screenTitle);
+
+      // video要素をラップする新しいdiv要素
+      const videoWrapper = document.createElement('div');
+      videoWrapper.classList.add('flex-grow', 'overflow-hidden'); // flex-growで残りのスペースを占め、overflow-hiddenで余白を消す
+
+      const videoPlayer = document.createElement('video');
+      videoPlayer.id = `videoPlayer${screenCount}`;
+      videoPlayer.width = 480;
+      videoPlayer.height = 270;
+      videoPlayer.controls = true;
+      // ビデオ要素にもTailwind CSSのユーティリティクラスを指定
+      videoPlayer.classList.add('w-full', 'rounded-lg'); 
+      // videoWrapperにvideoPlayerを追加
+      videoWrapper.appendChild(videoPlayer);
+      // videoContainerにvideoWrapperを追加
+      videoContainer.appendChild(videoWrapper);
+      main.appendChild(videoContainer);
+
+      // サイドバーにチャンネル選択を追加
+      const screenChannelSelect = document.createElement('select');
+      screenChannelSelect.id = `channelSelect${screenCount}`;
+      screenChannelSelect.classList.add('bg-gray-600', 'text-white', 'p-2', 'rounded-md', 'w-full');
+      channelOptions.forEach(option => {
+        screenChannelSelect.appendChild(option.cloneNode(true));
+      });
+      screenChannelSelect.addEventListener('change', () => {
+        const selectedChannelUrl = screenChannelSelect.value;
+        if (selectedChannelUrl) {
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.attachMedia(videoPlayer);
+            hls.loadSource(selectedChannelUrl);
+            videoPlayer.play();
+          } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            videoPlayer.src = selectedChannelUrl;
+            videoPlayer.load();
+            videoPlayer.play();
+          }
+        }
+      });
+
+      const screenControlLabel = document.createElement('label');
+      screenControlLabel.htmlFor = `channelSelect${screenCount}`;
+      screenControlLabel.textContent = `画面 ${screenCount}: `;
+      screenControlLabel.classList.add('block', 'text-gray-400', 'text-xs');
+      screenControls.appendChild(screenControlLabel);
+      screenControls.appendChild(screenChannelSelect);
+    }
+
+    addScreenButton.addEventListener('click', addScreen);
+
+    fetch(m3u8Url)
+      .then(response => response.text())
+      .then(data => {
+        const lines = data.split('\n');
+        let currentChannelUrl = '';
+        let currentChannelName = '';
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (line.startsWith('#EXTINF:')) {
+            const parts = line.split(',');
+            currentChannelName = parts[parts.length - 1];
+          } else if (line.startsWith('http')) {
+            currentChannelUrl = line;
+            const option = document.createElement('option');
+            option.value = currentChannelUrl;
+            option.text = currentChannelName;
+            channelOptions.push(option); // 選択肢を配列に格納
+          }
+        }
+
+      });
+  </script>
+
+</body>
+
+</html>
